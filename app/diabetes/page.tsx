@@ -9,9 +9,10 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Activity, AlertCircle } from "lucide-react"
+import { Activity, AlertCircle, Loader2 } from "lucide-react" // <-- Added Loader2
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
+// 1. UPDATED SCHEMA: Removed 'outcome' as it is the target variable, not an input feature.
 const formSchema = z.object({
   pregnancies: z.coerce.number().min(0, "Must be a positive number"),
   glucose: z.coerce.number().min(0, "Must be a positive number"),
@@ -21,11 +22,12 @@ const formSchema = z.object({
   bmi: z.coerce.number().min(0, "Must be a positive number"),
   diabetesPedigree: z.coerce.number().min(0, "Must be a positive number"),
   age: z.coerce.number().min(0, "Must be a positive number"),
-  outcome: z.string(), // 0 or 1
 })
 
 export default function DiabetesPrediction() {
   const [prediction, setPrediction] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false) // <-- New State
+  const [error, setError] = useState<string | null>(null) // <-- New State
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -38,14 +40,55 @@ export default function DiabetesPrediction() {
       bmi: 0,
       diabetesPedigree: 0,
       age: 0,
-      outcome: "",
+      // Removed: outcome: "",
     },
   })
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values)
-    const randomResult = Math.random() > 0.5 ? "Positive" : "Negative"
-    setPrediction(randomResult)
+  // 2. UPDATED SUBMIT FUNCTION: Logic replaced with API call
+  async function onSubmit(data: z.infer<typeof formSchema>) {
+    setLoading(true)
+    setPrediction(null)
+    setError(null)
+
+    // The payload keys must match the DIABETES_KEY_MAP in your multi_disease_api.py
+    const payload = {
+      pregnancies: data.pregnancies,
+      glucose: data.glucose,
+      bloodPressure: data.bloodPressure,
+      skinThickness: data.skinThickness,
+      insulin: data.insulin,
+      bmi: data.bmi,
+      diabetesPedigree: data.diabetesPedigree,
+      age: data.age,
+    }
+
+    try {
+      // API call to the unified Flask endpoint for Diabetes
+      const response = await fetch("http://127.0.0.1:5000/predict/diabetes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        // Throw the error message from the backend if available
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      // The API returns 'prediction': 0 or 1
+      const predictedStatus = result.prediction === 1 ? "Positive" : "Negative"
+      setPrediction(predictedStatus)
+    } catch (e) {
+      console.error("Prediction Error:", e)
+      setError((e as Error).message || "An unexpected network error occurred.")
+      setPrediction(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -150,33 +193,32 @@ export default function DiabetesPrediction() {
                     <FormMessage />
                   </FormItem>
                 )} />
+                
+                {/* 3. REMOVED Outcome Field (It's a prediction target, not an input feature) */}
 
-                {/* Outcome */}
-                <FormField control={form.control} name="outcome" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Outcome</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select outcome" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="0">No Diabetes</SelectItem>
-                        <SelectItem value="1">Diabetes</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>Final diabetes outcome</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )} />
               </div>
 
-              <Button type="submit" className="w-full">Predict Diabetes</Button>
+              {/* 4. UPDATED Button to show loading state */}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {loading ? "Predicting..." : "Predict Diabetes"}
+              </Button>
             </form>
           </Form>
         </CardContent>
+        
+        {/* New: Error Display */}
+        {error && (
+            <CardFooter>
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
+            </CardFooter>
+        )}
 
+        {/* Existing: Prediction Display */}
         {prediction && (
           <CardFooter>
             <Alert className={prediction === "Positive" ? "bg-red-50" : "bg-green-50"}>

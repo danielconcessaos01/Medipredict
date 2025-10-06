@@ -37,7 +37,6 @@
     --mps-border-color: #374151;
   }
 
-  /* Your existing dark theme setup is preserved */
   .dark {
     /* ... your dark theme variables ... */
   }
@@ -52,7 +51,6 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* Use Poppins font from layout.tsx */
   }
   .container {
     max-width: 1200px;
@@ -60,18 +58,26 @@
     padding: 0 20px;
   }
   html {
-    scroll-behavior: smooth; /* This enables smooth scrolling */
+    scroll-behavior: smooth;
   }
+}
 
-  * {
-    @apply border-border;
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+/* --- Keyframes for Animation --- */
+@keyframes kenburns {
+  0% {
+    transform: scale(1.0);
   }
-  body {
-    @apply bg-background text-foreground;
+  100% {
+    transform: scale(1.1); /* Zoom in over the full duration */
   }
+}
+
+@keyframes slideshow {
+  0% { opacity: 0; }
+  4% { opacity: 1; } /* Fade in */
+  20% { opacity: 1; } /* Stay visible (100% / 5 images) */
+  24% { opacity: 0; } /* Fade out */
+  100% { opacity: 0; }
 }
 
 @layer components {
@@ -96,13 +102,13 @@
     text-decoration: none;
   }
   .nav-links {
-    display: none; /* Hidden on mobile first */
+    display: none;
     list-style: none;
     gap: 40px;
   }
   @media (min-width: 768px) {
     .nav-links {
-      display: flex; /* Show on medium screens and up */
+      display: flex;
     }
   }
   .nav-links a {
@@ -117,7 +123,7 @@
     border-color: var(--mps-primary-color);
   }
   .nav-buttons {
-      display: none; /* Hidden on mobile by default */
+    display: none;
   }
   @media (min-width: 768px) {
     .nav-buttons {
@@ -171,18 +177,65 @@
     color: var(--mps-text-light) !important;
   }
 
-
-  /* --- Hero Section --- */
-   .hero {
-    /* Replace the URL in the line below */
-   background-image: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('/hero-background.jpeg');
-    background-size: cover;
-    background-position: center;
+  /* --- UPDATED HERO SECTION --- */
+  .hero {
+    position: relative;
+    overflow: hidden;
     color: var(--mps-text-light);
     text-align: center;
     padding: 120px 0;
+    height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .hero-slideshow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+  }
+  .hero-slideshow .slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    animation-name: slideshow, kenburns;
+    animation-duration: 30s, 30s; /* Total duration = 5 images * 6s */
+    animation-timing-function: linear, linear;
+    animation-iteration-count: infinite, infinite;
+  }
+  /* Stagger animations for 5 images */
+  .hero-slideshow .slide:nth-child(2) {
+    animation-delay: 6s;
+  }
+  .hero-slideshow .slide:nth-child(3) {
+    animation-delay: 12s;
+  }
+  .hero-slideshow .slide:nth-child(4) {
+    animation-delay: 18s;
+  }
+  .hero-slideshow .slide:nth-child(5) {
+    animation-delay: 24s;
+  }
+
+  .hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    z-index: 2;
   }
   .hero-content {
+    position: relative;
+    z-index: 3;
     max-width: 800px;
   }
   .hero h1 {
@@ -206,6 +259,16 @@
     display: flex;
     justify-content: center;
     gap: 20px;
+  }
+  .hero-disclaimer {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    max-width: 300px;
+    text-align: right;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.7);
+    z-index: 3;
   }
 
   /* --- Solutions & Features Sections --- */
@@ -233,7 +296,6 @@
       grid-template-columns: repeat(3, 1fr);
     }
   }
-
   .card-grid-four {
     grid-template-columns: 1fr;
   }
@@ -247,7 +309,6 @@
       grid-template-columns: repeat(4, 1fr);
     }
   }
-
   .card, .feature-card {
     border-radius: 8px;
     overflow: hidden;

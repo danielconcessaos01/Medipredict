@@ -24,7 +24,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, Heart } from "lucide-react"
+import { AlertCircle, Heart, Loader2 } from "lucide-react" // Added Loader2
 import {
   Select,
   SelectContent,
@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+// 1. UPDATED SCHEMA: Removed 'target' field
 const formSchema = z.object({
   age: z.coerce.number().min(0, "Must be a positive number"),
   sex: z.string(),
@@ -45,11 +46,12 @@ const formSchema = z.object({
   exerciseAngina: z.string(),
   oldpeak: z.coerce.number(),
   slope: z.string(),
-  target: z.string(),
 })
 
 export default function HeartDiseasePrediction() {
   const [prediction, setPrediction] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false) // New State
+  const [error, setError] = useState<string | null>(null) // New State
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -65,14 +67,59 @@ export default function HeartDiseasePrediction() {
       exerciseAngina: "",
       oldpeak: 0,
       slope: "",
-      target: "",
+      // Removed: target: "",
     },
   })
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values)
-    const randomResult = Math.random() > 0.5 ? "Positive" : "Negative"
-    setPrediction(randomResult)
+  // 2. UPDATED SUBMIT FUNCTION: Logic replaced with API call
+  async function onSubmit(data: z.infer<typeof formSchema>) {
+    setLoading(true)
+    setPrediction(null)
+    setError(null)
+
+    // The payload keys must match the expected input for your multi_disease_api.py
+    const payload = {
+        age: data.age,
+        sex: data.sex, // M or F
+        chestPainType: data.chestPainType, // TA, ATA, NAP, ASY
+        restingBP: data.restingBP,
+        cholesterol: data.cholesterol,
+        // Convert the string value from the Select component to an integer
+        fastingBS: parseInt(data.fastingBS), 
+        restingECG: data.restingECG, // Normal, ST, LVH
+        maxHR: data.maxHR,
+        exerciseAngina: data.exerciseAngina, // Y or N
+        oldpeak: data.oldpeak,
+        slope: data.slope, // Up, Flat, Down
+    }
+
+    try {
+      // API call to the unified Flask endpoint for Heart Disease
+      const response = await fetch("http://127.0.0.1:5000/predict/heart", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        // Throw the error message from the backend if available
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      // The API returns 'prediction': 0 or 1
+      const predictedStatus = result.prediction === 1 ? "Positive" : "Negative"
+      setPrediction(predictedStatus)
+    } catch (e) {
+      console.error("Prediction Error:", e)
+      setError((e as Error).message || "An unexpected network error occurred.")
+      setPrediction(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -208,6 +255,7 @@ export default function HeartDiseasePrediction() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          {/* Value is stored as string "0" or "1" but parsed as integer in onSubmit */}
                           <SelectItem value="0">≤ 120 mg/dl</SelectItem>
                           <SelectItem value="1">&gt; 120 mg/dl</SelectItem>
                         </SelectContent>
@@ -321,37 +369,30 @@ export default function HeartDiseasePrediction() {
                     </FormItem>
                   )}
                 />
-
-                {/* Target */}
-                <FormField
-                  control={form.control}
-                  name="target"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Target</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select target" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="0">No Disease</SelectItem>
-                          <SelectItem value="1">Disease Present</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {/* 3. REMOVED Target Field */}
               </div>
 
-              <Button type="submit" className="w-full">
-                Predict Heart Disease
+              {/* 4. UPDATED Button to show loading state */}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {loading ? "Predicting..." : "Predict Heart Disease"}
               </Button>
             </form>
           </Form>
         </CardContent>
+        
+        {/* New: Error Display */}
+        {error && (
+            <CardFooter>
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
+            </CardFooter>
+        )}
+
+        {/* Existing: Prediction Display */}
         {prediction && (
           <CardFooter>
             <Alert
