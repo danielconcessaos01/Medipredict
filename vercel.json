@@ -2,11 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "next.config.js",
-      "use": "@vercel/next"
-    },
-    {
-      "src": "multi_disease_api.py",
+      "src": "api/multi_disease_api.py",
       "use": "@vercel/python",
       "config": {
         "maxLambdaSize": "15mb",
@@ -17,11 +13,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "multi_disease_api.py"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "dest": "api/multi_disease_api.py"
     }
   ],
   "env": {
