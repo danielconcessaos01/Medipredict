@@ -124,8 +124,10 @@ export default function ParkinsonsPrediction() {
     }
 
     try {
-      // 🎯 API CALL TO THE LOCAL FLASK SERVER
-      const response = await fetch("http://127.0.0.1:5000/predict/parkinsons", {
+      // 🎯 API CALL CHANGE FOR VERCEL DEPLOYMENT: 
+      // Changed URL from "http://127.0.0.1:5000/predict/parkinsons" 
+      // to the relative path "/api/predict/parkinsons"
+      const response = await fetch("/api/predict/parkinsons", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -556,7 +558,7 @@ export default function ParkinsonsPrediction() {
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Prediction Error</AlertTitle>
                     <AlertDescription>
-                        {error}. Please ensure your Python API is running on http://127.0.0.1:5000.
+                        {error}. Please ensure your Python API is running on http://127.0.0.1:5000 (for local testing).
                     </AlertDescription>
                 </Alert>
             </CardFooter>

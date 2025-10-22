@@ -1,12 +1,13 @@
 import pickle
 import numpy as np
+import os  # Required for path manipulation, though less used now
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 # --- 1. SETUP ---
 app = Flask(__name__)
-# Enable CORS for communication between Next.js (port 3000) and Flask (port 5000)
-CORS(app) 
+# Enable CORS for communication between your Next.js frontend and this API
+CORS(app)
 
 # --- 2. LOAD ALL MODELS AND SCALERS ---
 MODELS = {}
@@ -19,79 +20,98 @@ FILES_TO_LOAD = {
     'heart': ('heart_model.pkl', 'heart_scaler.pkl'),
 }
 
+# ❌ REMOVED: ASSETS_DIR = 'assets'
+
+# --- 3. FEATURE MAPPING (Kept from previous revision) ---
+# Define the exact, ordered list of JSON keys expected from the Next.js frontend 
+DISEASE_JSON_KEYS = {
+    'heart': [
+        'age', 'sex', 'chestPainType', 'restingBP', 'cholesterol', 
+        'fastingBS', 'restingECG', 'maxHR', 'exerciseAngina', 'oldpeak', 
+        'slope' # Maps to 'ST slope'
+    ],
+    'parkinsons': [
+        'mdvpFo', 'mdvpFhi', 'mdvpFlo', 'mdvpJitterPercent', 'mdvpJitterAbs', 
+        'mdvpRAP', 'mdvpPPQ', 'jitterDDP', 'shimmer', 'shimmerDB', 
+        'shimmerAPQ3', 'shimmerAPQ5', 'shimmerAPQ', 'shimmerDDA', 
+        'nhr', 'hnr', 'rpde', 'dfa', 'spread1', 'spread2', 'd2', 'ppe'
+    ],
+    'diabetes': [
+        'pregnancies', 'glucose', 'bloodPressure', 'skinThickness', 
+        'insulin', 'bmi', 'diabetesPedigreeFunction', 'age'
+    ]
+}
+
 def load_assets():
-    """Loads all models and scalers into global dictionaries."""
+    """Loads all models and scalers into global dictionaries. Looks in the current directory."""
     all_loaded = True
     print("--- Loading ML Assets ---")
     for name, (model_file, scaler_file) in FILES_TO_LOAD.items():
         try:
-            with open(model_file, 'rb') as f:
+            # ✅ FIX: Use the file names directly, assuming they are in the current directory
+            model_path = model_file 
+            scaler_path = scaler_file
+            
+            with open(model_path, 'rb') as f:
                 MODELS[name] = pickle.load(f)
-            with open(scaler_file, 'rb') as f:
+            with open(scaler_path, 'rb') as f:
                 SCALERS[name] = pickle.load(f)
             print(f"✅ {name.capitalize()} Model and Scaler loaded successfully.")
         except FileNotFoundError:
-            print(f"❌ ERROR: Missing files for {name.capitalize()}: {model_file} or {scaler_file} not found.")
+            # Important: The files must be in the same folder as this script.
+            print(f"❌ ERROR: Missing files for {name.capitalize()}: {model_file} or {scaler_file}")
             all_loaded = False
         except Exception as e:
             print(f"❌ ERROR loading {name.capitalize()} assets: {e}")
             all_loaded = False
             
-    print("-------------------------")
     return all_loaded
 
-load_assets()
+# --- 4. HELPER FUNCTIONS ---
 
-
-# --- 3. FEATURE MAPPINGS (Critical for consistent data input) ---
-
-# Features for Parkinson's (22 total)
-PARKINSONS_KEY_MAP = {
-    'mdvpFo': 'MDVP:Fo(Hz)', 'mdvpFhi': 'MDVP:Fhi(Hz)', 'mdvpFlo': 'MDVP:Flo(Hz)', 
-    'mdvpJitterPercent': 'MDVP:Jitter(%)', 'mdvpJitterAbs': 'MDVP:Jitter(Abs)', 
-    'mdvpRAP': 'MDVP:RAP', 'mdvpPPQ': 'MDVP:PPQ', 'jitterDDP': 'Jitter:DDP',
-    'shimmer': 'MDVP:Shimmer', 'shimmerDB': 'MDVP:Shimmer(dB)', 'shimmerAPQ3': 'Shimmer:APQ3',
-    'shimmerAPQ5': 'Shimmer:APQ5', 'shimmerAPQ': 'MDVP:APQ', 'shimmerDDA': 'Shimmer:DDA',
-    'nhr': 'NHR', 'hnr': 'HNR', 'rpde': 'RPDE', 'dfa': 'DFA', 
-    'spread1': 'spread1', 'spread2': 'spread2', 'd2': 'D2', 'ppe': 'PPE'
-}
-
-# Features for Diabetes (8 total)
-DIABETES_KEY_MAP = {
-    'pregnancies': 'Pregnancies', 'glucose': 'Glucose', 'bloodPressure': 'BloodPressure',
-    'skinThickness': 'SkinThickness', 'insulin': 'Insulin', 'bmi': 'BMI',
-    'diabetesPedigree': 'DiabetesPedigreeFunction', 'age': 'Age'
-}
-
-# Features for Heart Disease (11 total)
-HEART_KEY_MAP = {
-    'age': 'age', 'sex': 'sex', 'chestPainType': 'chest pain type', 
-    'restingBP': 'resting bp s', 'cholesterol': 'cholesterol', 'fastingBS': 'fasting blood sugar', 
-    'restingECG': 'resting ecg', 'maxHR': 'max heart rate', 'exerciseAngina': 'exercise angina', 
-    'oldpeak': 'oldpeak', 'stSlope': 'ST slope'
-}
-
-
-# --- 4. PREDICTION LOGIC (A single function for modularity) ---
-
-def make_prediction(model_key, data):
-    """General function to validate input, scale, and predict."""
-    model = MODELS.get(model_key)
-    scaler = SCALERS.get(model_key)
-    key_map = globals()[f'{model_key.upper()}_KEY_MAP'] # Get the right key map
-
+def get_model_and_scaler(disease_name):
+    """Retrieves the model and scaler for the given disease."""
+    model = MODELS.get(disease_name)
+    scaler = SCALERS.get(disease_name)
+    
     if not model or not scaler:
-        return {'error': f'{model_key.capitalize()} model/scaler not loaded'}, 500
+        # Attempt to reload assets if they are missing (robustness in serverless)
+        if not load_assets():
+             return None, None
+        model = MODELS.get(disease_name)
+        scaler = SCALERS.get(disease_name)
+        if not model or not scaler:
+             return None, None
+             
+    return model, scaler
 
-    # 1. Extract and order the feature values using the defined key map
+def make_prediction(disease_name, input_data):
+    """Generic function to scale input, predict, and return the result."""
+    model, scaler = get_model_and_scaler(disease_name)
+    
+    if not model or not scaler:
+        return {'error': f'Models for {disease_name.capitalize()} are not available on the server.'}, 500
+
+    try:
+        json_keys = DISEASE_JSON_KEYS[disease_name]
+    except KeyError:
+         return {'error': f'Internal Server Error: No key mapping found for {disease_name.capitalize()}.'}, 500
+
+
     feature_values = []
-    for fe_key in key_map:
-        value = data.get(fe_key)
+
+    # 1. Extract values from the JSON input in the correct order
+    for json_key in json_keys:
+        value = input_data.get(json_key)
         if value is None:
-            return {'error': f'Missing feature: {fe_key}'}, 400
-        # Ensure the value is converted to a float (or int for non-float fields if necessary, 
-        # but float handles all cases)
-        feature_values.append(float(value)) 
+            # Report the missing key using the name expected by the frontend
+            return {'error': f'Missing feature: {json_key}'}, 400
+        
+        try:
+            # Ensure the value is converted to a float. Added error handling for non-numeric input.
+            feature_values.append(float(value)) 
+        except ValueError:
+            return {'error': f'Invalid value for feature {json_key}. Expected a number.'}, 400
         
     # 2. Convert to NumPy array (1 row, N columns)
     input_data_as_numpy_array = np.asarray(feature_values).reshape(1, -1)
@@ -116,6 +136,7 @@ def predict_disease(disease_name):
         return jsonify({'error': f'Unknown disease: {disease_name}'}), 404
 
     try:
+        # Vercel's serverless runtime ensures data loading before first request
         data = request.get_json(force=True)
         
         # Use the generic prediction function
@@ -124,17 +145,10 @@ def predict_disease(disease_name):
         return jsonify(result), status_code
         
     except Exception as e:
-        return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
+        # Catch unexpected errors during request handling
+        return jsonify({'error': f'An internal server error occurred: {str(e)}'}), 500
 
-
-# --- 6. RUN THE APP (REMOVED FOR PRODUCTION) ---
-
-# Call load_assets here so the models/scalers are loaded
-# when the Gunicorn server imports the app object.
-if not load_assets():
-    # If loading fails, you might want to log an error or raise an exception
-    import sys
-    sys.exit("Error loading one or more ML assets. Cannot start the server.")
-    
-# The app object (app = Flask(__name__)) is now ready for Gunicorn. 
-# The deployment service will handle running the app using Gunicorn.
+# --- 6. INITIALIZATION FOR VERCEL ---
+# Call load_assets here so the models/scalers are loaded 
+# when the Vercel serverless function imports the 'app' object.
+load_assets()

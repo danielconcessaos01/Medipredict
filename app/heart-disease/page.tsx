@@ -94,8 +94,10 @@ export default function HeartDiseasePrediction() {
     }
 
     try {
-      // API call to the unified Flask endpoint for Heart Disease
-      const response = await fetch("http://127.0.0.1:5000/predict/heart", {
+      // --- VERCEL DEPLOYMENT CHANGE ---
+      // Changed URL from "http://127.0.0.1:5000/predict/heart" 
+      // to the relative path "/api/predict/heart"
+      const response = await fetch("/api/predict/heart", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

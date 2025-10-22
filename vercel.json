@@ -1,0 +1,21 @@
+// vercel.json
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/multi_disease_api.py",
+      "use": "@vercel/python",
+      "config": {
+        // Essential: This bundles your assets directory into the function
+        "includeFiles": ["assets/**", "requirements.txt"] 
+      }
+    }
+  ],
+  "routes": [
+    // Routes all requests starting with /api to your Python file
+    {
+      "src": "/api/(.*)",
+      "dest": "api/multi_disease_api.py"
+    }
+  ]
+}

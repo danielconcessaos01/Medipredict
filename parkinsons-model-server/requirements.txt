@@ -1,5 +1,0 @@
-Flask
-flask-cors
-numpy
-scikit-learn
-gunicorn  # A recommended production web server
