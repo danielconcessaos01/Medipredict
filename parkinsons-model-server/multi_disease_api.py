@@ -127,7 +127,14 @@ def predict_disease(disease_name):
         return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
 
 
-# --- 6. RUN THE APP ---
-if __name__ == '__main__':
-    # Start the Flask development server on port 5000
-    app.run(debug=True, port=5000)
+# --- 6. RUN THE APP (REMOVED FOR PRODUCTION) ---
+
+# Call load_assets here so the models/scalers are loaded
+# when the Gunicorn server imports the app object.
+if not load_assets():
+    # If loading fails, you might want to log an error or raise an exception
+    import sys
+    sys.exit("Error loading one or more ML assets. Cannot start the server.")
+    
+# The app object (app = Flask(__name__)) is now ready for Gunicorn. 
+# The deployment service will handle running the app using Gunicorn.

@@ -1,0 +1,1 @@
+web: gunicorn multi_disease_api:app
