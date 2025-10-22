@@ -10,12 +10,6 @@
       }
     }
   ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "api/multi_disease_api.py"
-    }
-  ],
   "env": {
     "PYTHON_VERSION": "3.11.0"
   }
