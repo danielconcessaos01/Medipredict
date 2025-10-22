@@ -1,21 +1,30 @@
-// vercel.json
 {
   "version": 2,
   "builds": [
     {
-      "src": "api/multi_disease_api.py",
+      "src": "next.config.js",
+      "use": "@vercel/next"
+    },
+    {
+      "src": "multi_disease_api.py",
       "use": "@vercel/python",
       "config": {
-        // Essential: This bundles your assets directory into the function
-        "includeFiles": ["assets/**", "requirements.txt"] 
+        "maxLambdaSize": "15mb",
+        "runtime": "python3.11"
       }
     }
   ],
   "routes": [
-    // Routes all requests starting with /api to your Python file
     {
       "src": "/api/(.*)",
-      "dest": "api/multi_disease_api.py"
+      "dest": "multi_disease_api.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
     }
-  ]
+  ],
+  "env": {
+    "PYTHON_VERSION": "3.11.0"
+  }
 }
